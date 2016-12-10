@@ -41,7 +41,9 @@ if ( ! class_exists( 'WP_REST_Menus' ) ) :
 	     * @return string
 	     */
 	    public static function get_plugin_namespace() {
-		    return 'wp-api-menus/v2';
+		    // return 'wp-api-menus/v2';
+            // TODO: Customization here because of a PROXY/ CORS nested
+            return 'wp/v2';
 	    }
 
 
@@ -275,14 +277,16 @@ if ( ! class_exists( 'WP_REST_Menus' ) ) :
 			 * So the easiest thing to do is to reverse the list and then build our tree
 			 * from the ground up
 			 */
-			$rev_items = array_reverse ( $menu_items );
-			$rev_menu  = array();
-			$cache     = array();
+			$rev_items    = array_reverse ( $menu_items );
+			$rev_menu     = array();
+			$rev_subMenu  = array();
+			$cache        = array();
 
 			foreach ( $rev_items as $item ) :
 
 				$formatted = array(
 					'ID'          => abs( $item->ID ),
+					'id'          => abs( $item->ID ),
 					'order'       => (int) $item->menu_order,
 					'parent'      => abs( $item->menu_item_parent ),
 					'title'       => $item->title,
@@ -315,12 +319,15 @@ if ( ! class_exists( 'WP_REST_Menus' ) ) :
 
 				} else {
 
-					array_push( $rev_menu, $formatted );
+					array_push( $rev_subMenu, $formatted );
 				}
 
 			endforeach;
 
-			return array_reverse ( $rev_menu );
+			$rev_menu[0]['slug'] = $location;
+			$rev_menu[0]['items'] = array_reverse ( $rev_subMenu );
+
+			return $rev_menu;
         }
 
 
