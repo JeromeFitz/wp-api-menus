@@ -239,10 +239,71 @@ if ( ! class_exists( 'WP_REST_Menus' ) ) :
 		                continue;
 	                }
 
-	                $rest_menus[ $slug ]['ID']                          = $locations[ $slug ];
-                    $rest_menus[ $slug ]['label']                       = $label;
-                    $rest_menus[ $slug ]['meta']['links']['collection'] = $rest_url;
-                    $rest_menus[ $slug ]['meta']['links']['self']       = $rest_url . $slug;
+		            $wp_menu = wp_get_nav_menu_object( $locations[ $slug ] );
+		            $menu_items = wp_get_nav_menu_items( $wp_menu->term_id );
+
+					/**
+					 * wp_get_nav_menu_items() outputs a list that's already sequenced correctly.
+					 * So the easiest thing to do is to reverse the list and then build our tree
+					 * from the ground up
+					 */
+					$rev_items    = array_reverse ( $menu_items );
+					$rev_menu     = array();
+					$rev_subMenu  = array();
+					$cache        = array();
+
+					foreach ( $rev_items as $item ) :
+
+						$formatted = array(
+							'ID'          => abs( $item->ID ),
+							'id'          => abs( $item->ID ),
+							'order'       => (int) $item->menu_order,
+							'parent'      => abs( $item->menu_item_parent ),
+							'title'       => $item->title,
+							'url'         => $item->url,
+							'attr'        => $item->attr_title,
+							'target'      => $item->target,
+							'classes'     => implode( ' ', $item->classes ),
+							'xfn'         => $item->xfn,
+							'description' => $item->description,
+							'object_id'   => abs( $item->object_id ),
+							'object'      => $item->object,
+							'type'        => $item->type,
+							'type_label'  => $item->type_label,
+							'children'    => array(),
+						);
+
+						if ( array_key_exists( $item->ID , $cache ) ) {
+							$formatted['children'] = array_reverse( $cache[ $item->ID ] );
+						}
+
+		            	$formatted = apply_filters( 'rest_menus_format_menu_item', $formatted );
+
+						if ( $item->menu_item_parent != 0 ) {
+
+							if ( array_key_exists( $item->menu_item_parent , $cache ) ) {
+								array_push( $cache[ $item->menu_item_parent ], $formatted );
+							} else {
+								$cache[ $item->menu_item_parent ] = array( $formatted, );
+							}
+
+						} else {
+
+							array_push( $rev_subMenu, $formatted );
+						}
+
+					endforeach;
+
+					// $rev_menu[0]['slug'] = $location;
+					// $rev_menu[0]['items'] = array_reverse ( $rev_subMenu );
+					//
+					// return $rev_menu;
+
+                    array_push($rest_menus, array(
+                        'id'     => $locations[ $slug ],
+						'slug'   => $slug,
+						'items'  => array_reverse ( $rev_subMenu )
+                    ));
 
                 endforeach;
 
@@ -324,6 +385,7 @@ if ( ! class_exists( 'WP_REST_Menus' ) ) :
 
 			endforeach;
 
+			$rev_menu[0]['id'] = $wp_menu->term_id;
 			$rev_menu[0]['slug'] = $location;
 			$rev_menu[0]['items'] = array_reverse ( $rev_subMenu );
 
